@@ -4,7 +4,11 @@ import java.util.ArrayList;
 
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
+import android.content.Context;
 import android.content.Intent;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.os.Bundle;
 import android.speech.RecognizerIntent;
 import android.view.Menu;
@@ -15,13 +19,23 @@ import android.app.PendingIntent;
 import android.widget.TextView;
 import android.widget.Toast;
 
-public class MainActivity extends Activity {
-	// Find your Account Sid and Token at twilio.com/user/account
-	public static final String ACCOUNT_SID = "AC0e7178b6ba74af11794c3316eae9bbf1";
-	public static final String AUTH_TOKEN = "f6016b9e744d86c0aee64908e624daf7";
+public class MainActivity extends Activity implements LocationListener {
 
+	private static final String DISTRESS_KEYWORD = "help";
+	private static final String DISTRESS_PREFIX = "Some one needs help";
+	
 	protected static final int RESULT_SPEECH = 1;
+	
+	protected LocationManager locationManager;
+	protected LocationListener locationListener;
+	
+	private String name = "";
+	private String contact1 = "";
+	private String contact2 = "";
 
+	double lat;
+	private double lon;
+	
 	private ImageButton btnSpeak;
 	private TextView txtText;
 
@@ -29,7 +43,16 @@ public class MainActivity extends Activity {
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
+		
+		Intent intent = getIntent();
+		
+		name = intent.getStringExtra("name");
+		contact1 = intent.getStringExtra("contact1");
+		contact2 = intent.getStringExtra("contact2");
 
+		locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+		locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, this);
+		
 		txtText = (TextView) findViewById(R.id.txtText);
 
 		btnSpeak = (ImageButton) findViewById(R.id.btnSpeak);
@@ -77,32 +100,66 @@ public class MainActivity extends Activity {
 				String convertedText = text.get(0);
 				txtText.setText(convertedText);
 				
-				sendText(convertedText);
+				if( hasKeyword ( convertedText ) ) {
+					sendText(convertedText);
+				}
 			}
 			break;
 		}
 		}
 	}
-
-	private void sendText(String message) {
-
-		String phoneNo = "2154211284";            
-
-		if (phoneNo.length()>0 && message.length()>0) {              
-			sendSMS(phoneNo, message);                
+	
+	private boolean hasKeyword( String text ) {
+		text = text.trim();
+		
+		String[] splitString = text.split(" ");
+		for ( int i = 0; i < splitString.length; i++ ) {
+			if( splitString[i].toLowerCase().equals(DISTRESS_KEYWORD)) {
+				return true;
+			}
 		}
-		else {
-			Toast.makeText(getBaseContext(), 
-					"Please enter both phone number and message.", 
-					Toast.LENGTH_SHORT).show();
+		return false;
+	}
+	
+	private void sendText(String message) {           
+
+		String final_message = "ALERT : "+ name.toUpperCase() +" requesting for help. \n Location: "+ lat +" , "+lon;
+		if (contact1.length()>0 && message.length()>0) {              
+			sendSMS(contact1, final_message);                
 		}
+		if (contact2.length()>0 && message.length()>0) {              
+				sendSMS(contact2, final_message);                
+		}
+
 	} 
 	
 	private void sendSMS(String phoneNumber, String message)
-    {        
+    {   
         PendingIntent pi = PendingIntent.getActivity(this, 0,
-            new Intent(this, MainActivity.class), 0);                
+            new Intent(this, MainActivity.class), 0);     
+
         SmsManager sms = SmsManager.getDefault();
         sms.sendTextMessage(phoneNumber, null, message, pi, null);        
     }    
+	
+	@Override
+	public void onLocationChanged(Location location) {
+		lat = location.getLatitude();
+		lon = location.getLongitude();
+	}
+
+	@Override
+	public void onProviderDisabled(String provider) {
+		
+	}
+
+	@Override
+	public void onProviderEnabled(String provider) {
+		
+	}
+
+	@Override
+	public void onStatusChanged(String provider, int status, Bundle extras) {
+		
+	}
 }
